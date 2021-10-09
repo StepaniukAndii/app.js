@@ -1,102 +1,78 @@
+const mysql = require("mysql");
 const express = require("express");
-const fs = require("fs");
-    
+ 
 const app = express();
-const jsonParser = express.json();
-  
-app.use(express.static(__dirname + "/public"));
-  
-const filePath = "users.json";
-app.get("/api/users", function(req, res) {
-       
-    const content = fs.readFileSync(filePath,"utf8");
-    const users = JSON.parse(content);
-    res.send(users);
+const urlencodedParser = express.urlencoded({extended: false});
+ 
+const pool = mysql.createPool({
+  connectionLimit: 5,
+  host: "localhost",
+  user: "root",
+  database: "users",
+  password: "password"
 });
-// получение одного пользователя по id
-app.get("/api/users/goodbye", function(req, res){
-       res.send("Всем удачи)!!!");
+ 
+app.set("view engine", "hbs");
+ 
+// получение списка пользователей
+app.get("/", function(req, res){
+    pool.query("SELECT * FROM users", function(err, data) {
+      if(err) return console.log(err);
+      res.render("index.hbs", {
+          users: data
+      });
+    });
 });
-// получение отправленных данных
-app.post("/api/users", jsonParser, function (req, res) {
-      
+// возвращаем форму для добавления данных
+app.get("/create", function(req, res){
+    res.render("create.hbs");
+});
+// получаем отправленные данные и добавляем их в БД 
+app.post("/create", urlencodedParser, function (req, res) {
+         
     if(!req.body) return res.sendStatus(400);
-      
-    const userName = req.body.name;
-    const userAge = req.body.age;
-    let user = {name: userName, age: userAge};
-      
-    let data = fs.readFileSync(filePath, "utf8");
-    let users = JSON.parse(data);
-      
-    // находим максимальный id
-    const id = Math.max.apply(Math,users.map(function(o){return o.id;}))
-    // увеличиваем его на единицу
-    user.id = id+1;
-    // добавляем пользователя в массив
-    users.push(user);
-    data = JSON.stringify(users);
-    // перезаписываем файл с новыми данными
-    fs.writeFileSync("users.json", data);
-    res.send(user);
+    const name = req.body.name;
+    const age = req.body.age;
+    pool.query("INSERT INTO users (name, age) VALUES (?,?)", [name, age], function(err, data) {
+      if(err) return console.log(err);
+      res.redirect("/");
+    });
 });
- // удаление пользователя по id
-app.delete("/api/users/:id", function(req, res){
-       
-    const id = req.params.id;
-    let data = fs.readFileSync(filePath, "utf8");
-    let users = JSON.parse(data);
-    let index = -1;
-    // находим индекс пользователя в массиве
-    for(var i=0; i < users.length; i++){
-        if(users[i].id==id){
-            index=i;
-            break;
-        }
-    }
-    if(index > -1){
-        // удаляем пользователя из массива по индексу
-        const user = users.splice(index, 1)[0];
-        data = JSON.stringify(users);
-        fs.writeFileSync("users.json", data);
-        // отправляем удаленного пользователя
-        res.send(user);
-    }
-    else{
-        res.status(404).send();
-    }
+ 
+// получем id редактируемого пользователя, получаем его из бд и отправлям с формой редактирования
+app.get("/edit/:id", function(req, res){
+  const id = req.params.id;
+  pool.query("SELECT * FROM users WHERE id=?", [id], function(err, data) {
+    if(err) return console.log(err);
+     res.render("edit.hbs", {
+        user: data[0]
+    });
+  });
 });
-// изменение пользователя
-app.put("/api/users", jsonParser, function(req, res){
-       
-    if(!req.body) return res.sendStatus(400);
-      
-    const userId = req.body.id;
-    const userName = req.body.name;
-    const userAge = req.body.age;
-      
-    let data = fs.readFileSync(filePath, "utf8");
-    const users = JSON.parse(data);
-    let user;
-    for(var i=0; i<users.length; i++){
-        if(users[i].id==userId){
-            user = users[i];
-            break;
-        }
-    }
-    // изменяем данные у пользователя
-    if(user){
-        user.age = userAge;
-        user.name = userName;
-        data = JSON.stringify(users);
-        fs.writeFileSync("users.json", data);
-        res.send(user);
-    }
-    else{
-        res.status(404).send(user);
-    }
-});
+// получаем отредактированные данные и отправляем их в БД
+app.post("/edit", urlencodedParser, function (req, res) {
+         
+  if(!req.body) return res.sendStatus(400);
+  const name = req.body.name;
+  const age = req.body.age;
+  const id = req.body.id;
    
+  pool.query("UPDATE users SET name=?, age=? WHERE id=?", [name, age, id], function(err, data) {
+    if(err) return console.log(err);
+    res.redirect("/");
+  });
+});
+ 
+// получаем id удаляемого пользователя и удаляем его из бд
+app.post("/delete/:id", function(req, res){
+          
+  const id = req.params.id;
+  pool.query("DELETE FROM users WHERE id=?", [id], function(err, data) {
+    if(err) return console.log(err);
+    res.redirect("/");
+  });
+});
+ 
 app.listen(3000, function(){
-    console.log("Сервер ожидает подключения...на url http://192.168.0.111:3000");
+  console.log("Сервер ожидает подключения...");
 });
