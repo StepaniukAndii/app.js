@@ -97,6 +97,6 @@ app.put("/api/users", jsonParser, function(req, res){
     }
 });
    
-app.listen(8080, function(){
+app.listen(80, function(){
     console.log("Сервер ожидает подключения...на url http://192.168.0.111:8080");
 });
