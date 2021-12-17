@@ -81,7 +81,9 @@ app.delete("/api/users/:id", function(req, res){
         data = JSON.stringify(users);
         fs.writeFileSync("users.json", data);
         // отправляем удаленного пользователя
+        res.status(500).send();
         res.send(user);
+    
     }
     else{
         res.status(404).send();
