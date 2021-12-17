@@ -7,15 +7,33 @@ const jsonParser = express.json();
 app.use(express.static(__dirname + "/public"));
   
 const filePath = "users.json";
-app.get("/api/users", function(req, res) {
+app.get("/api/users", function(req, res){
        
     const content = fs.readFileSync(filePath,"utf8");
     const users = JSON.parse(content);
     res.send(users);
 });
 // получение одного пользователя по id
-app.get("/api/users/goodbye", function(req, res){
-       res.send("Всем удачи)!!!");
+app.get("/api/users/:id", function(req, res){
+       
+    const id = req.params.id; // получаем id
+    const content = fs.readFileSync(filePath, "utf8");
+    const users = JSON.parse(content);
+    let user = null;
+    // находим в массиве пользователя по id
+    for(var i=0; i<users.length; i++){
+        if(users[i].id==id){
+            user = users[i];
+            break;
+        }
+    }
+    // отправляем пользователя
+    if(user){
+        res.send(user);
+    }
+    else{
+        res.status(404).send();
+    }
 });
 // получение отправленных данных
 app.post("/api/users", jsonParser, function (req, res) {
@@ -32,7 +50,10 @@ app.post("/api/users", jsonParser, function (req, res) {
     // находим максимальный id
     const id = Math.max.apply(Math,users.map(function(o){return o.id;}))
     // увеличиваем его на единицу
-    user.id = id+1;
+    user.id = id + 1;
+    if(user.id==null) {
+       user.id = 1;
+    }
     // добавляем пользователя в массив
     users.push(user);
     data = JSON.stringify(users);
@@ -97,6 +118,6 @@ app.put("/api/users", jsonParser, function(req, res){
     }
 });
    
-app.listen(80, function(){
-    console.log("Сервер ожидает подключения...на url http://192.168.0.111:8080");
+app.listen(3000, function(){
+    console.log("Сервер ожидает подключения...");
 });
